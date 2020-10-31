@@ -1,63 +1,34 @@
-import numpy as np
-from mido import MidiFile, Message, MetaMessage, MidiTrack
-
-LOWEST_NOTE = 60  # C4
-HIGHEST_NOTE = 84  # C6
-INPUT_DIM = HIGHEST_NOTE - LOWEST_NOTE
-OUTPUT_DIM = INPUT_DIM
-
-
-def parse_midi(filename):
-    midi_file = MidiFile(filename)
-
-    resolution = midi_file.ticks_per_beat
-    print(f'Resolution: {resolution}')
-
-    total_ticks = 0
-
-    for track in midi_file.tracks:
-        track_ticks = 0
-        for event in track:
-            event_type = str(event.type)
-            if event_type == 'note_on' or event_type == 'note_off' or event_type == 'end_of_track':
-                track_ticks += event.time
-
-            if track_ticks > total_ticks:
-                total_ticks = track_ticks
-
-    print(f'Total ticks: {total_ticks}')
-
-    piano_roll = np.zeros((INPUT_DIM, total_ticks), dtype=int)
-
-    notes_starts = {}
-    for track in midi_file.tracks:
-        total_ticks = 0
-        for event in track:
-            event_type = str(event.type)
-            if event_type == 'note_on' and event.velocity > 0:
-                total_ticks += event.time
-                note_index = event.note - LOWEST_NOTE
-                piano_roll[note_index][total_ticks] = 1
-                notes_starts[note_index] = total_ticks
-            elif event_type == 'note_off' or (event_type == 'note_on' and event.velocity == 0):
-                total_ticks += event.time
-                note_index = event.note - LOWEST_NOTE
-                if note_index in notes_starts:
-                    piano_roll[note_index][notes_starts[note_index]: total_ticks] = 1
-                    del notes_starts[note_index]
-
-    # test = np.zeros((INPUT_DIM, 32), dtype=str)
-    # for j in range(0, HIGHEST_NOTE - LOWEST_NOTE):
-    #     for i in range(0, 32):
-    #         test[j][i] = str(piano_roll[j][i * resolution//8]
-    #                          ) if piano_roll[j][i * resolution//8] == 1 else '_'
-
-    # np.savetxt('test.txt', test, fmt='%c')
-
+from midi_parser import midi_to_input
+from network import *
+import tensorflow as tf
 
 def main():
-    parse_midi('test.mid')
 
+    SEQUENCE_LENGTH = 100
+    MIDI_FOLDER = '.'#/midi/beethoven'
+
+    # if not os.path.isfile(MIDI_FOLDER + '/output/parsed.bin'):
+    input_notes = midi_to_input(MIDI_FOLDER)
+    # else:
+    #     with open(MIDI_FOLDER + '/output/parsed.bin', 'rb') as path:
+    #         input_notes = pickle.load(path)
+    
+    # network_input, network_output, note_variants_count = create_input_sequences(input_notes, SEQUENCE_LENGTH)
+
+    # physical_devices = tf.config.list_physical_devices('GPU') 
+    # tf.config.experimental.set_memory_growth(physical_devices[0], True)
+    
+    # print('Starting training...')
+    # model = create_network1(network_input, note_variants_count)
+    # train_network(model,'BLSTM', network_input, network_output)
+
+    # model = create_network2(network_input, note_variants_count)
+    # train_network(model,'BLSTM_Att', network_input, network_output)
+
+    # model = create_network3(network_input, note_variants_count)
+    # train_network(model,'BLSTM_Att_LSTM', network_input, network_output)
+    
+    generate_midi(input_notes, MIDI_FOLDER, None, SEQUENCE_LENGTH, 1000)
 
 if __name__ == "__main__":
     main()
